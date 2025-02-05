@@ -126,13 +126,19 @@ AI:
 
 Example Flow Summary:
 Initial Question: Generate medium-to-hard questions based on the resume content and job role.
+Wait for User Answer: Allow the user to respond to the question.
 User Answer Evaluation: After each answer, assess confidence, correctness, and provide suggestions for improvement.
 Follow-Up Questions: Generate deeper follow-up questions based on the user's responses to challenge them further.
 Repeat: Continue the process until the mock interview session ends or the user terminates it.
 `
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash", systemInstruction: SYS_PROMPT });
+const model = genAI.getGenerativeModel({
+    // model: "gemini-1.5-flash", systemInstruction: SYS_PROMPT, generationConfig: {
+    //     responseMimeType: "application/json"
+    // }
+    model: "gemini-1.5-flash", systemPrompt: SYS_PROMPT
+});
 const upload = multer({ dest: 'uploads/' });
 const app = express();
 const port = process.env.PORT || 3000;
@@ -223,8 +229,23 @@ app.post('/upload-resume', upload.single('resume'), async (req, res) => {
 
 async function aiInterviewer(resumeText, jobRole) {
     try {
-        const result = await model.generateContent(`Start Your Work keeping the system prompt instruction in the mind for the following resume: ${resumeText} for the role of ${jobRole}.`);
-        console.log(result.response.text());
+        const result = await model.generateContentStream({
+            systemInstruction: SYS_PROMPT,
+            contents: [
+                {
+                    role: "user",
+                    parts: [
+                        {
+                            text: `Start the interview keeping the system prompt instruction in the mind for the following resume: ${resumeText} for the role of ${jobRole}.`
+                        }
+                    ]
+                }
+            ]
+        });
+        for await (const chunk of result.stream) {
+            const chunkText = chunk.text();
+            process.stdout.write(chunkText);
+        }
     }
     catch (e) {
         console.log(e);
