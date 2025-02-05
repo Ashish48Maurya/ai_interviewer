@@ -5,6 +5,7 @@ import path from "path"
 import fs from "node:fs"
 import { PdfReader } from 'pdfreader'
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import readlineSync from 'readline-sync';
 
 const SYS_PROMPT = `
 You are an AI-powered mock interviewer that evaluates user responses based on their resume content and the role they wish to apply for. The system will generate tailored interview questions, assess the user’s answers, and provide feedback on confidence, correctness, and areas for improvement.
@@ -96,20 +97,7 @@ Confidence Level: 8/10
 Feedback: "Great job! Your response was confident and to the point. You provided a valid solution with clustering and load balancing. To improve, mention potential issues like race conditions or resource contention when handling concurrent requests and how you might resolve them."
 
 Correctness: Correct
-Feedback: "Correct! Clustering is a great strategy for scaling a Node.js application and ensuring it can handle multiple concurrent requests. Using a load balancer helps distribute traffic evenly, preventing any one instance from becoming overwhelmed."
-
-Improvement Suggestions: "In addition to clustering and load balancing, consider mentioning caching strategies (e.g., Redis) to reduce database load, and how to monitor and optimize the performance of each Node.js instance."
-
-Follow-up Question Example 2:
-AI:
-"Well explained! In a large-scale application, how would you prevent resource contention when scaling with Node.js? Can you think of a strategy for managing shared resources?"
-
-User Answer Example 3:
-Question:
-AI: "Can you describe the WebSocket implementation you worked on in your project? What challenges did you face?"
-
-User Answer:
-User: "I implemented WebSockets to create a real-time chat feature for a client project. The main challenge was ensuring low latency and handling disconnections gracefully. I used ws in Node.js for the WebSocket server and ensured that users could reconnect seamlessly if they lost connection. I also used Redis as a message broker to sync messages across multiple servers."
+Feedback: "Correct! Clustering is a great strategy for scaling a Node.js application and ensuring it can handle multiple concurrent requests. Using a load balancer I used ws in Node.js for the WebSocket server and ensured that users could reconnect seamlessly if they lost connection. I also used Redis as a message broker to sync messages across multiple servers."
 
 AI Evaluation Example 3:
 Confidence Level: 7/10
@@ -228,26 +216,36 @@ app.post('/upload-resume', upload.single('resume'), async (req, res) => {
 });
 
 async function aiInterviewer(resumeText, jobRole) {
+    let history = [];
+    let contents = {
+        role: "user",
+        parts: [
+            {
+                text: `Start the interview keeping the system prompt instruction in the mind for the following resume: ${resumeText} for the role of ${jobRole}.`
+            }
+        ]
+    };
+    history.push(contents);
+
     try {
-        const result = await model.generateContentStream({
+        const result = await model.startChat({
             systemInstruction: SYS_PROMPT,
-            contents: [
-                {
-                    role: "user",
-                    parts: [
-                        {
-                            text: `Start the interview keeping the system prompt instruction in the mind for the following resume: ${resumeText} for the role of ${jobRole}.`
-                        }
-                    ]
-                }
-            ]
+            history: history
         });
-        for await (const chunk of result.stream) {
-            const chunkText = chunk.text();
-            process.stdout.write(chunkText);
+
+        while (true) {
+            const user_answer = readlineSync.question('>> ');
+            if (user_answer.toLowerCase() === 'exit') {
+                break;
+            }
+            let res = await result.sendMessage(user_answer);
+            console.log(res.data.choices[0].message);
+            history.push({
+                role: 'user',
+                parts: [{ text: user_answer }],
+            });
         }
-    }
-    catch (e) {
+    } catch (e) {
         console.log(e);
     }
 }

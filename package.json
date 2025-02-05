@@ -16,6 +16,7 @@
     "express": "^4.21.2",
     "multer": "^1.4.5-lts.1",
     "nodemon": "^3.1.9",
-    "pdfreader": "^3.0.7"
+    "pdfreader": "^3.0.7",
+    "readline-sync": "^1.4.10"
   }
 }
