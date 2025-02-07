@@ -7,12 +7,15 @@ import { NextResponse } from "next/server";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_KEY);
 
+// const model = genAI.getGenerativeModel({
+//     model: "gemini-2.0-flash",
+// });
 const model = genAI.getGenerativeModel({
-    model: "gemini-2.0-flash",
-});
+    model: "gemini-2.0-flash-thinking-exp-01-21",
+  });
 
 const generationConfig = {
-    temperature: 1,
+    temperature: 0.7,
     topP: 0.95,
     topK: 40,
     maxOutputTokens: 8192,
