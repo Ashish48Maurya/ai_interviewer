@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Loader2, Mic, MicOff, Upload } from "lucide-react"
+import { motion, AnimatePresence } from "framer-motion"
 import { startRecording, stopRecording } from "../utils/audioUtils"
 
 
@@ -16,7 +17,8 @@ export default function AIInterviewer() {
   const [isRecording, setIsRecording] = useState(false)
   const fileInputRef = useRef(null)
   const [isLoading, setIsLoading] = useState(false)
-  const [userRes,setUserRes] = useState("")
+  const [userRes, setUserRes] = useState("")
+  const [aiRes, setAiRes] = useState("")
   const [history, setHistory] = useState([
     {
       role: "user",
@@ -38,6 +40,12 @@ export default function AIInterviewer() {
     }
   }
 
+  const textToSpeech = (text) => {
+    let speech = new SpeechSynthesisUtterance(text);
+    window.speechSynthesis.speak(speech);
+  };
+
+
   const handleStartInterview = async (user_res) => {
     if (!user_res) return
     try {
@@ -50,12 +58,13 @@ export default function AIInterviewer() {
       })
       if (response.ok) {
         setIsInterviewStarted(true)
-        const { result } = await response.json()
+        const { result } = await response.json();
+        setAiRes(result)
+        textToSpeech(result)
 
-        console.log(result);
-        const match = result.match(/\*\*Question \d+:\*\*\s*\n*["“](.*?)["”]/s);
+        const match = result.match(/(?:Here's your first question:\s*\n*)?\*\*Question \d+:\*\*\s*\n*["“](.*?)["”]/s);
         const question = match ? match[1] : "No question found";
-        console.log(question);
+        console.log(question); //remove this in production
 
         setHistory((prev) => [...prev, { role: "user", parts: [{ text: user_res }] }, { role: "model", parts: [{ text: question }] }])
       } else {
@@ -165,89 +174,109 @@ export default function AIInterviewer() {
   return (
     <div className="min-h-screen bg-gradient-to-r from-blue-500 to-purple-600 p-4">
       <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-xl p-6">
-        <h1 className="text-3xl font-bold mb-6 text-center text-gray-800">AI Interviewer</h1>
+        <motion.h1
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-4xl font-bold mb-6 text-center text-black"
+        >
+          AI Interviewer
+        </motion.h1>
 
-        {!isInterviewStarted ? (
-          <form onSubmit={handleExtractText} className="space-y-4">
-            <div>
-              <Label htmlFor="resume" className="block text-sm font-medium text-gray-700">
-                Upload Resume (PDF)
-              </Label>
-              <div className="mt-1 flex items-center">
+        <AnimatePresence mode="wait">
+          {!isInterviewStarted ? (
+            <motion.form
+              key="interview-form"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              onSubmit={handleExtractText}
+              className="space-y-6"
+            >
+              <div>
+                <Label htmlFor="resume" className="block text-sm font-medium text-gray-800">
+                  Upload Resume (PDF)
+                </Label>
+                <div className="mt-1 flex items-center">
+                  <Input
+                    id="resume"
+                    type="file"
+                    accept=".pdf"
+                    onChange={handleFileChange}
+                    className="hidden"
+                    ref={fileInputRef}
+                    required
+                  />
+                  <Button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    <Upload className="mr-2 h-5 w-5 text-gray-400" />
+                    Choose file
+                  </Button>
+                  <span className="ml-3 text-sm text-gray-400">{file ? file.name : "No file chosen"}</span>
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="role" className="block text-sm font-medium text-gray-800">
+                  Job Role
+                </Label>
                 <Input
-                  id="resume"
-                  type="file"
-                  accept=".pdf"
-                  onChange={handleFileChange}
-                  className="hidden"
-                  ref={fileInputRef}
+                  id="role"
+                  type="text"
+                  value={role}
+                  onChange={(e) => setRole(e.target.value)}
+                  placeholder="e.g., Software Engineer"
+                  className="mt-1 bg-white text-gray-800 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
                   required
                 />
+              </div>
+              <Button
+                type="submit"
+                className="w-full text-white"
+                disabled={isLoading}
+              >
+                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Start Interview"}
+              </Button>
+            </motion.form>
+          ) : (
+            <div>
+              <div className="mb-4 p-4 bg-gray-100 rounded-lg">
+                <h3 className="font-semibold mb-2">AI Response:</h3>
+                <div style={{ whiteSpace: "pre-wrap" }}>{aiRes}</div>
+              </div>
+              <Input
+                type="text"
+                value={userRes}
+                onChange={(e) => setUserRes(e.target.value)}
+                placeholder="Type your response..."
+                className="flex-grow"
+              />
+              <div className="bg-gray-100 p-4 rounded-lg max-h-96 overflow-y-auto mb-4">
+                {history.slice(3).map((message, index) => (
+                  <div
+                    key={index}
+                    className={`mb-4 p-3 rounded-lg ${message.role === "user" ? "bg-blue-100 text-blue-800" : "bg-green-100 text-green-800"
+                      }`}
+                  >
+                    <p className="font-semibold">{message.role === "user" ? "You" : "AI Interviewer"}</p>
+                    <p>{message.parts[0].text}</p>
+                  </div>
+                ))}
+
+              </div>
+              <div className="flex justify-center">
                 <Button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  onClick={isRecording ? handleStopRecording : handleStartRecording}
+                  className={`px-6 py-3 rounded-full ${isRecording ? "bg-red-500 hover:bg-red-600" : "bg-blue-500 hover:bg-blue-600"}`}
                 >
-                  <Upload className="mr-2 h-5 w-5 text-gray-400" />
-                  Choose file
+                  {isRecording ? <MicOff className="mr-2" /> : <Mic className="mr-2" />}
+                  {isRecording ? "Stop Recording" : "Start Recording"}
                 </Button>
-                <span className="ml-3 text-sm text-gray-500">{file ? file.name : "No file chosen"}</span>
               </div>
             </div>
-            <div>
-              <Label htmlFor="role" className="block text-sm font-medium text-gray-700">
-                Job Role
-              </Label>
-              <Input
-                id="role"
-                type="text"
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                placeholder="e.g., Software Engineer"
-                className="mt-1"
-                required
-              />
-            </div>
-            <Button
-              type="submit"
-              className="w-full bg-gradient-to-r from-blue-500 to-orange-500 hover:from-blue-600 hover:to-orange-600 focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 text-white"
-              disabled={isLoading}
-            >
-              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Start Interview"}
-            </Button>
-          </form>
-        ) : (
-          <div>
-            <Input
-              type="text"
-              value={userRes}
-              onChange={(e) => setUserRes(e.target.value)}
-              placeholder="Type your response..."
-              className="flex-grow"
-            />
-            <div className="bg-gray-100 p-4 rounded-lg max-h-96 overflow-y-auto mb-4">
-              {history.map((message, index) => (
-                <div
-                  key={index}
-                  className={`mb-4 p-3 rounded-lg ${message.role === "user" ? "bg-blue-100 text-blue-800" : "bg-green-100 text-green-800"
-                    }`}
-                >
-                  <p className="font-semibold">{message.role === "user" ? "You" : "AI Interviewer"}</p>
-                  <p>{message.content}</p>
-                </div>
-              ))}
-            </div>
-            <div className="flex justify-center">
-              <Button
-                onClick={isRecording ? handleStopRecording : handleStartRecording}
-                className={`px-6 py-3 rounded-full ${isRecording ? "bg-red-500 hover:bg-red-600" : "bg-blue-500 hover:bg-blue-600"}`}
-              >
-                {isRecording ? <MicOff className="mr-2" /> : <Mic className="mr-2" />}
-                {isRecording ? "Stop Recording" : "Start Recording"}
-              </Button>
-            </div>
-          </div>
-        )}
+          )}
+        </AnimatePresence>
       </div>
     </div>
   )
