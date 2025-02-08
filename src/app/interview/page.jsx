@@ -5,11 +5,8 @@ import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Loader2, Mic, MicOff, Upload } from "lucide-react"
+import { Loader2, Bot, Mic, MicOff, Upload, Send } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Card, CardContent } from "@/components/ui/card"
-
-// import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
 
 export default function AIInterviewer() {
     const [file, setFile] = useState(null)
@@ -35,11 +32,6 @@ export default function AIInterviewer() {
             ],
         },
     ])
-    // const {
-    //   transcript,
-    //   resetTranscript,
-    //   browserSupportsSpeechRecognition
-    // } = useSpeechRecognition();
     const chatContainerRef = useRef(null)
 
     const handleFileChange = (e) => {
@@ -55,6 +47,7 @@ export default function AIInterviewer() {
 
     const handleStartInterview = async (user_res) => {
         if (!user_res) return
+        setIsLoading(true)
         try {
             const response = await fetch("/api/interview", {
                 method: "POST",
@@ -67,9 +60,8 @@ export default function AIInterviewer() {
                 setIsInterviewStarted(true)
                 const { result } = await response.json()
 
-                console.log(result)
-
-                setAiRes(result)
+                const formattedResponse = result.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+                setAiRes(formattedResponse)
                 textToSpeech(result)
 
                 const paragraphs = result.trim().split("\n\n")
@@ -80,8 +72,6 @@ export default function AIInterviewer() {
                     { role: "user", parts: [{ text: user_res }] },
                     { role: "model", parts: [{ text: lastParagraph }] },
                 ])
-            } else {
-                console.error("Failed to start interview")
             }
         } catch (error) {
             console.error("Error starting interview:", error)
@@ -99,7 +89,6 @@ export default function AIInterviewer() {
 
             reader.onload = async function () {
                 const typedarray = new Uint8Array(this.result)
-
                 const pdf = await pdfjsLib.getDocument({ data: typedarray }).promise
                 let extractedText = ""
 
@@ -111,7 +100,7 @@ export default function AIInterviewer() {
                     let lastY,
                         textLine = []
                     textContent.items.forEach((item) => {
-                        if (lastY === item.transform[5] || !lastY) {
+                        if (lastY === item.transform[5] || lastY === undefined) {
                             textLine.push(item.str)
                         } else {
                             pageText += textLine.join(" ") + "\n"
@@ -120,10 +109,9 @@ export default function AIInterviewer() {
                         lastY = item.transform[5]
                     })
                     pageText += textLine.join(" ")
-
                     extractedText += pageText + "\n"
                 }
-                handleStartInterview(`This is my resume text : ${extractedText} and I am applying for the role of ${role}`)
+                handleStartInterview(`This is my resume text: ${extractedText} and I am applying for the role of ${role}`)
             }
 
             reader.readAsArrayBuffer(file)
@@ -134,7 +122,7 @@ export default function AIInterviewer() {
         }
     }
 
-    var recognition
+    let recognition
 
     const handleStartRecording = () => {
         if (!("SpeechRecognition" in window || "webkitSpeechRecognition" in window)) {
@@ -143,30 +131,30 @@ export default function AIInterviewer() {
         }
 
         if (!recognition) {
-            recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)()
+            recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)
             recognition.continuous = true
             recognition.interimResults = true
 
             recognition.onstart = () => {
-                console.log("We are listening...")
-                setUserRes("") // Clear previous results
+                console.log("Recording started...")
+                setUserRes("")
                 setIsRecording(true)
             }
 
             recognition.onresult = (event) => {
-                let interimTranscript = "" // Stores live text
-                let finalTranscript = "" // Stores final confirmed text
+                let interimTranscript = ""
+                let finalTranscript = ""
 
                 for (let i = 0; i < event.results.length; i++) {
                     const transcript = event.results[i][0].transcript
                     if (event.results[i].isFinal) {
-                        finalTranscript += transcript + " " // Finalized text
+                        finalTranscript += transcript + " "
                     } else {
-                        interimTranscript += transcript + " " // Live text
+                        interimTranscript += transcript + " "
                     }
                 }
 
-                setUserRes(finalTranscript || interimTranscript) // Update UI in real-time
+                setUserRes(finalTranscript || interimTranscript)
             }
 
             recognition.onerror = (event) => {
@@ -175,7 +163,7 @@ export default function AIInterviewer() {
             }
 
             recognition.onend = () => {
-                console.log("Speech recognition stopped.")
+                console.log("Recording stopped.")
                 setIsRecording(false)
             }
         }
@@ -185,15 +173,12 @@ export default function AIInterviewer() {
     const handleStopRecording = () => {
         if (recognition) {
             recognition.stop()
-            console.log("Recording stopped.")
         }
         setIsRecording(false)
     }
 
     const sendAudioToAI = async (transcriptionText) => {
         window.speechSynthesis.cancel()
-        const user_res = transcriptionText
-        const requestBody = JSON.stringify({ user_res, history })
         setIsLoading(true)
         try {
             const response = await fetch("/api/interview", {
@@ -201,25 +186,23 @@ export default function AIInterviewer() {
                 headers: {
                     "Content-Type": "application/json",
                 },
-                body: requestBody,
+                body: JSON.stringify({ user_res: transcriptionText, history }),
             })
 
             if (response.ok) {
                 const { result } = await response.json()
-
                 const paragraphs = result.trim().split("\n\n")
                 const lastParagraph = paragraphs[paragraphs.length - 1]
 
-                setAiRes(result)
+                const formattedResponse = result.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+                setAiRes(formattedResponse)
                 textToSpeech(result)
 
                 setHistory((prev) => [
                     ...prev,
-                    { role: "user", parts: [{ text: user_res }] },
+                    { role: "user", parts: [{ text: transcriptionText }] },
                     { role: "model", parts: [{ text: lastParagraph }] },
                 ])
-            } else {
-                console.error("Failed to process text")
             }
         } catch (error) {
             console.error("Error processing text:", error)
@@ -242,32 +225,40 @@ export default function AIInterviewer() {
     }, [history])
 
     return (
-        <div className="min-h-screen bg-gradient-to-r from-blue-600 to-purple-700 p-4 flex items-center justify-center">
-            <Card className="w-full max-w-4xl bg-white/90 backdrop-blur-sm shadow-2xl">
-                <CardContent className="p-6">
-                    <motion.h1
-                        initial={{ opacity: 0, y: -20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="text-4xl font-bold mb-6 text-center text-gray-800"
-                    >
+        <div className="min-h-screen bg-gradient-to-r from-blue-600 to-purple-700 p-4 md:p-8 flex items-center justify-center">
+            <div className="w-full max-w-4xl bg-white/95 backdrop-blur-lg shadow-2xl rounded-2xl p-6 md:p-8">
+                <motion.div
+                    initial={{ opacity: 0, y: -20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex items-center justify-center gap-3 mb-8"
+                >
+                    <Bot className="w-10 h-10 text-purple-600" />
+                    <h1 className="text-4xl md:text-5xl font-bold text-gray-800 tracking-tight">
                         AI Interviewer
-                    </motion.h1>
+                    </h1>
+                </motion.div>
 
-                    <AnimatePresence mode="wait">
-                        {!isInterviewStarted ? (
-                            <motion.form
-                                key="interview-form"
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -20 }}
-                                onSubmit={handleExtractText}
+                <AnimatePresence mode="wait">
+                    {!isInterviewStarted ? (
+                        <motion.form
+                            key="interview-form"
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -20 }}
+                            onSubmit={handleExtractText}
+                            className="space-y-8"
+                        >
+                            <motion.div
                                 className="space-y-6"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                transition={{ delay: 0.2 }}
                             >
-                                <div>
-                                    <Label htmlFor="resume" className="block text-sm font-medium text-gray-800">
-                                        Upload Resume (PDF)
+                                <div className="space-y-4">
+                                    <Label htmlFor="resume" className="text-lg font-semibold text-gray-800">
+                                        Upload Your Resume
                                     </Label>
-                                    <div className="mt-1 flex items-center">
+                                    <div className="mt-1 flex items-center gap-4">
                                         <Input
                                             id="resume"
                                             type="file"
@@ -280,109 +271,148 @@ export default function AIInterviewer() {
                                         <Button
                                             type="button"
                                             onClick={() => fileInputRef.current?.click()}
-                                            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                            className="flex-shrink-0 bg-purple-600 hover:bg-purple-700 text-white transition-all duration-300 transform hover:scale-105"
+                                            size="lg"
                                         >
-                                            <Upload className="mr-2 h-5 w-5 text-gray-400" />
-                                            Choose file
+                                            <Upload className="mr-2 h-5 w-5" />
+                                            Choose PDF
                                         </Button>
-                                        <span className="ml-3 text-sm text-gray-600">{file ? file.name : "No file chosen"}</span>
+                                        <span className="text-sm text-gray-600 truncate">
+                                            {file ? file.name : "No file chosen"}
+                                        </span>
                                     </div>
                                 </div>
-                                <div>
-                                    <Label htmlFor="role" className="block text-sm font-medium text-gray-800">
-                                        Job Role
+
+                                <div className="space-y-4">
+                                    <Label htmlFor="role" className="text-lg font-semibold text-gray-800">
+                                        Desired Job Role
                                     </Label>
                                     <Input
                                         id="role"
                                         type="text"
                                         value={role}
                                         onChange={(e) => setRole(e.target.value)}
-                                        placeholder="e.g., Software Engineer"
-                                        className="mt-1 bg-white text-gray-800 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                                        placeholder="e.g., Software Engineer, Product Manager"
+                                        className="bg-white text-gray-800 border-gray-300 focus:border-purple-500 focus:ring-purple-500 text-lg p-6"
                                         required
                                     />
                                 </div>
+                            </motion.div>
+
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                transition={{ delay: 0.4 }}
+                            >
                                 <Button
                                     type="submit"
-                                    className="w-full bg-blue-600 hover:bg-blue-700 text-white transition-colors duration-300"
+                                    className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-lg py-6 transition-all duration-300 transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                                     disabled={isLoading}
                                 >
                                     {isLoading ? (
-                                        <>
-                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                            Starting Interview...
-                                        </>
+                                        <div className="flex items-center justify-center gap-2">
+                                            <Loader2 className="h-5 w-5 animate-spin" />
+                                            <span>Preparing Your Interview...</span>
+                                        </div>
                                     ) : (
                                         "Start Interview"
                                     )}
                                 </Button>
-                            </motion.form>
-                        ) : (
-                            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
-                                <Card className="mb-4 bg-blue-50">
-                                    <CardContent className="p-4">
-                                        <h3 className="font-semibold mb-2 text-blue-800">AI Response:</h3>
-                                        <div className="text-gray-700" style={{ whiteSpace: "pre-wrap" }}>
-                                            {aiRes}
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                                <Card className="mb-4 bg-purple-50">
-                                    <CardContent className="p-4">
-                                        <h3 className="font-semibold mb-2 text-purple-800">Your Response:</h3>
-                                        <div className="flex items-center space-x-2">
-                                            <Input
-                                                type="text"
-                                                value={userRes}
-                                                onChange={(e) => setUserRes(e.target.value)}
-                                                placeholder="Type your response..."
-                                                onKeyDown={handleKeyDown}
-                                                className="flex-grow bg-white text-gray-800"
-                                            />
-                                            <Button
-                                                className="bg-purple-600 hover:bg-purple-700 text-white transition-colors duration-300"
-                                                disabled={isLoading}
-                                                onClick={() => sendAudioToAI(userRes)}
-                                            >
-                                                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send"}
-                                            </Button>
-                                        </div>
-                                    </CardContent>
-                                </Card>
+                            </motion.div>
+                        </motion.form>
+                    ) : (
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -20 }}
+                            className="space-y-6"
+                        >
+                            <div className="bg-gradient-to-r from-blue-50 to-purple-50 shadow-md rounded-lg p-6">
+                                <h3 className="font-semibold mb-3 text-indigo-800 text-lg">AI Response:</h3>
+                                <div
+                                    className="text-gray-700 text-lg leading-relaxed"
+                                    style={{ whiteSpace: "pre-wrap" }}
+                                    dangerouslySetInnerHTML={{ __html: aiRes }}
+                                />
+                            </div>
 
-                                <Card className="mb-4 bg-gray-50 max-h-96 overflow-y-auto" ref={chatContainerRef}>
-                                    <CardContent className="p-4 space-y-4">
-                                        {history.slice(3).map((message, index) => (
-                                            <motion.div
-                                                key={index}
-                                                initial={{ opacity: 0, y: 10 }}
-                                                animate={{ opacity: 1, y: 0 }}
-                                                transition={{ delay: index * 0.1 }}
-                                                className={`p-3 rounded-lg ${message.role === "user" ? "bg-blue-100 text-blue-800" : "bg-green-100 text-green-800"
-                                                    }`}
-                                            >
-                                                <p className="font-semibold">{message.role === "user" ? "You" : "AI Interviewer"}</p>
-                                                <p>{message.parts[0].text}</p>
-                                            </motion.div>
-                                        ))}
-                                    </CardContent>
-                                </Card>
-                                <div className="flex justify-center">
+                            <div className="bg-white shadow-md rounded-lg p-6">
+                                <h3 className="font-semibold mb-3 text-purple-800 text-lg">Your Response:</h3>
+                                <div className="flex items-center gap-3">
+                                    <Input
+                                        type="text"
+                                        value={userRes}
+                                        onChange={(e) => setUserRes(e.target.value)}
+                                        placeholder="Type your response..."
+                                        onKeyDown={handleKeyDown}
+                                        className="flex-grow bg-white text-gray-800 text-lg p-6"
+                                    />
                                     <Button
-                                        onClick={isRecording ? handleStopRecording : handleStartRecording}
-                                        className={`px-6 py-3 rounded-full transition-colors duration-300 ${isRecording ? "bg-red-500 hover:bg-red-600" : "bg-blue-500 hover:bg-blue-600"
-                                            }`}
+                                        className="bg-purple-600 hover:bg-purple-700 text-white h-14 w-14 rounded-full flex items-center justify-center transition-all duration-300 transform hover:scale-105 disabled:opacity-50"
+                                        disabled={isLoading}
+                                        onClick={() => sendAudioToAI(userRes)}
                                     >
-                                        {isRecording ? <MicOff className="mr-2" /> : <Mic className="mr-2" />}
-                                        {isRecording ? "Stop Recording" : "Start Recording"}
+                                        {isLoading ? (
+                                            <Loader2 className="h-6 w-6 animate-spin" />
+                                        ) : (
+                                            <Send className="h-6 w-6" />
+                                        )}
                                     </Button>
                                 </div>
+                            </div>
+
+                            <div
+                                className="bg-gradient-to-b from-gray-50 to-white shadow-md rounded-lg max-h-[400px] overflow-y-auto p-6 space-y-4"
+                                ref={chatContainerRef}
+                            >
+                                {history.slice(3).map((message, index) => (
+                                    <motion.div
+                                        key={index}
+                                        initial={{ opacity: 0, x: message.role === "user" ? 20 : -20 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        transition={{ delay: index * 0.1 }}
+                                        className={`p-4 rounded-2xl ${message.role === "user"
+                                            ? "bg-gradient-to-r from-purple-100 to-indigo-100 text-gray-800 ml-auto max-w-[80%]"
+                                            : "bg-gradient-to-r from-gray-100 to-blue-100 text-gray-800 max-w-[80%]"
+                                            }`}
+                                    >
+                                        <p className="font-semibold mb-2">
+                                            {message.role === "user" ? "You" : "AI Interviewer"}
+                                        </p>
+                                        <p className="text-lg leading-relaxed">{message.parts[0].text}</p>
+                                    </motion.div>
+                                ))}
+                            </div>
+
+                            <motion.div
+                                className="flex justify-center"
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                            >
+                                <Button
+                                    onClick={isRecording ? handleStopRecording : handleStartRecording}
+                                    className={`px-8 py-6 rounded-full transition-all duration-300 transform hover:scale-105 ${isRecording
+                                        ? "bg-red-500 hover:bg-red-600"
+                                        : "bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
+                                        } text-white text-lg`}
+                                >
+                                    {isRecording ? (
+                                        <div className="flex items-center gap-2">
+                                            <MicOff className="h-6 w-6" />
+                                            <span>Stop Recording</span>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center gap-2">
+                                            <Mic className="h-6 w-6" />
+                                            <span>Start Recording</span>
+                                        </div>
+                                    )}
+                                </Button>
                             </motion.div>
-                        )}
-                    </AnimatePresence>
-                </CardContent>
-            </Card>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            </div>
         </div>
     )
 }
-
