@@ -3,7 +3,7 @@
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import { ArrowRight, CheckCircle, Star, Users, Brain, Target, Sparkles } from "lucide-react"
+import { ArrowRight, Users, Brain, Target, Sparkles } from "lucide-react"
 
 const FeatureCard = ({ icon, title, description }) => (
   <motion.div
@@ -43,7 +43,7 @@ const StepIndicator = ({ number, text, isLast }) => (
         className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-400 rounded-full blur-lg opacity-50"
       />
     </div>
-    <span className="text-lg font-medium ml-4 text-white group-hover:text-blue-200 transition-colors">
+    <span className="text-md lg:text-lg font-medium ml-4 text-white group-hover:text-blue-200 transition-colors">
       {text}
     </span>
     {!isLast && (
@@ -77,10 +77,10 @@ export default function Home() {
           >
             <Brain size={60} className="text-blue-400" />
           </motion.div>
-          <h1 className="text-7xl font-extrabold mb-6 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+          <h1 className="text-4xl lg:text-6xl font-extrabold mb-6 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
             AI Interviewer
           </h1>
-          <p className="text-2xl text-gray-300 mb-10 max-w-2xl mx-auto leading-relaxed">
+          <p className="text-xl lg:text-2xl text-gray-300 mb-10 max-w-2xl mx-auto leading-relaxed">
             Master your interview skills with our advanced AI-powered platform. Get real-time feedback and personalized coaching.
           </p>
           <motion.div
@@ -127,7 +127,7 @@ export default function Home() {
           transition={{ duration: 0.8 }}
           className="max-w-5xl mx-auto"
         >
-          <h2 className="text-4xl font-bold text-center mb-16 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+          <h2 className="text-2xl lg:text-3xl font-bold text-center mb-16 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
             Your Path to Success
           </h2>
           <div className="flex flex-col md:flex-row justify-between items-start space-y-8 md:space-y-0">
