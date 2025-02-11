@@ -2,17 +2,29 @@
 import * as pdfjsLib from "pdfjs-dist/build/pdf"
 import "pdfjs-dist/build/pdf.worker.mjs"
 import { useState, useRef, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Button } from "../../components/ui/button"
+import { Input } from "../../components/ui/input"
+import { Label } from "../../components/ui/label"
 import { Loader2, Bot, Mic, MicOff, Upload, Send } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
+import useSpeechToText from 'react-hook-speech-to-text';
 
 export default function AIInterviewer() {
+    const {
+        error,
+        interimResult,
+        isRecording,
+        results,
+        startSpeechToText,
+        stopSpeechToText,
+    } = useSpeechToText({
+        continuous: true,
+        useLegacyResults: false
+    });
     const [file, setFile] = useState(null)
     const [role, setRole] = useState("")
     const [isInterviewStarted, setIsInterviewStarted] = useState(false)
-    const [isRecording, setIsRecording] = useState(false)
+    // const [is_Recording, setIsRecording] = useState(false)
     const fileInputRef = useRef(null)
     const [isLoading, setIsLoading] = useState(false)
     const [userRes, setUserRes] = useState("")
@@ -122,59 +134,19 @@ export default function AIInterviewer() {
         }
     }
 
-    let recognition
+    useEffect(() => {
+        if (results.length > 0) {
+            setUserRes((prev) => prev + " " + results[results.length - 1]?.transcript);
+        }
+    }, [results]);
+    
 
     const handleStartRecording = () => {
-        if (!("SpeechRecognition" in window || "webkitSpeechRecognition" in window)) {
-            console.error("Speech recognition is not supported in this browser.")
-            return
-        }
-
-        if (!recognition) {
-            recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)
-            recognition.continuous = true
-            recognition.interimResults = true
-
-            recognition.onstart = () => {
-                console.log("Recording started...")
-                setUserRes("")
-                setIsRecording(true)
-            }
-
-            recognition.onresult = (event) => {
-                let interimTranscript = ""
-                let finalTranscript = ""
-
-                for (let i = 0; i < event.results.length; i++) {
-                    const transcript = event.results[i][0].transcript
-                    if (event.results[i].isFinal) {
-                        finalTranscript += transcript + " "
-                    } else {
-                        interimTranscript += transcript + " "
-                    }
-                }
-
-                setUserRes(finalTranscript || interimTranscript)
-            }
-
-            recognition.onerror = (event) => {
-                console.error("Speech recognition error:", event.error)
-                setIsRecording(false)
-            }
-
-            recognition.onend = () => {
-                console.log("Recording stopped.")
-                setIsRecording(false)
-            }
-        }
-        recognition.start()
+        startSpeechToText()
     }
 
     const handleStopRecording = () => {
-        if (recognition) {
-            recognition.stop()
-        }
-        setIsRecording(false)
+        stopSpeechToText()
     }
 
     const sendAudioToAI = async (transcriptionText) => {
