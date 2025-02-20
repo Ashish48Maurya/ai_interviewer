@@ -52,7 +52,15 @@ export default function UploadPage() {
                 {loading ? "Uploading..." : "Upload & Process"}
             </button>
 
-            {response && <p>Response: {response}</p>}
+            {response && (
+                <p dangerouslySetInnerHTML={{
+                    __html: `Response: <br/><br/>` +
+                        response
+                            .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")  
+                            .replace(/\* /g, "<br/>- ") 
+                }} />
+            )}
+
         </div>
     );
 }
