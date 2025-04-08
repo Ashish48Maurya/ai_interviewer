@@ -1,7 +1,5 @@
 import {
-    GoogleGenerativeAI,
-    HarmCategory,
-    HarmBlockThreshold,
+    GoogleGenerativeAI
 } from "@google/generative-ai";
 import { NextResponse } from "next/server";
 
@@ -36,6 +34,6 @@ export async function POST(req) {
         const result = res.response.text();
         return NextResponse.json({ result }, { status: 200 });
     } catch (error) {
-        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+        return NextResponse.json({ error: "Internal Server Error", message:error.message }, { status: 500 });
     }
 }
