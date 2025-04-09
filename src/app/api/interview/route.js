@@ -3,7 +3,7 @@ import {
 } from "@google/generative-ai";
 import { NextResponse } from "next/server";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_KEY);
+const genAI = new GoogleGenerativeAI("AIzaSyDc1w-XAJY9dmQcPOeH7eZ-e2SjYEyHHwI");
 
 // const model = genAI.getGenerativeModel({
 //     model: "gemini-2.0-flash",
