@@ -47,7 +47,7 @@ export default function AIInterviewer() {
 
     const textToSpeech = (text) => {
         const speech = new SpeechSynthesisUtterance(text)
-        window.speechSynthesis.speak(speech)
+        window?.speechSynthesis.speak(speech)
     }
 
     const handleStartInterview = async (user_res) => {
@@ -134,7 +134,7 @@ export default function AIInterviewer() {
     }, [results])
 
     const handleStartRecording = () => {
-        window.speechSynthesis.cancel()
+        window?.speechSynthesis.cancel()
         startSpeechToText()
     }
 
