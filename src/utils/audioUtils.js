@@ -1,7 +1,12 @@
 let mediaRecorder = null
 let audioChunks = []
 
-export const startRecording = async ()=> {
+export const startRecording = async () => {
+  if (typeof window === "undefined" || typeof navigator === "undefined") {
+    console.warn("Recording not supported on the server.")
+    return
+  }
+
   const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
   mediaRecorder = new MediaRecorder(stream)
   audioChunks = []
@@ -21,7 +26,8 @@ export const stopRecording = () => {
         resolve(audioBlob)
       }
       mediaRecorder.stop()
+    } else {
+      resolve(null)
     }
   })
 }
-
