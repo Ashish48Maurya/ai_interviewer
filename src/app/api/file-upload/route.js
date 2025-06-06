@@ -5,7 +5,7 @@ import fs from "fs";
 import path from "path";
 import { writeFile } from "fs/promises";
 
-const genAI = new GoogleGenerativeAI("AIzaSyDc1w-XAJY9dmQcPOeH7eZ-e2SjYEyHHwI");
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_KEY);
 const fileManager = new GoogleAIFileManager(process.env.GEMINI_KEY);
 
 const model = genAI.getGenerativeModel({
